@@ -21,29 +21,16 @@ const SLACK_CLIENT_SECRET = "0d836f5968b9b7fbc9bdaf6eadc6420e";
 passport.use(new SlackStrategy({
     clientID: SLACK_CLIENT_ID,
     clientSecret: SLACK_CLIENT_SECRET,
-    callbackURL: 'https://localhost:3001/auth/slack/callback',
     skipUserProfile: false, 
-    scope: ['identity.basic', 'identity.email', 'identity.avatar', 'identity.team'] 
+    // scope: ['identity.basic', 'identity.email', 'identity.avatar', 'identity.team'] 
+    scope: ['identity.basic'] 
+
   },
   (accessToken, refreshToken, profile, done) => {
    
     done(null, profile);
   }
 ));
-
-passport.use(new SlackStrategy({
-  clientID: SLACK_CLIENT_ID,
-  clientSecret: SLACK_CLIENT_SECRET,
-  callbackURL: 'https://localhost:3001/auth/slack/callback',
-  scope: ['identity.basic', 'channels:read', 'chat:write:user']
-}, () => { }));
-
-passport.use(new SlackStrategy({
-  clientID: SLACK_CLIENT_ID,
-  clientSecret: SLACK_CLIENT_SECRET,
-  scope: ['identity.basic'],
-  skipUserProfile: false,
-}, () => { }));
 
 passport.serializeUser((user,done) => {
     done(null,user);
