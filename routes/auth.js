@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const passport = require('passport');
+require('dotenv').config();
 const userdb = require('../models/users');
 const activitydb = require('../models/userActivity');
+const userchanneldb = require('../models/ChannelList');
 const app = express();
 const { WebClient, LogLevel } = require("@slack/web-api");
 
@@ -42,48 +44,76 @@ router.post('/addUser', (req,res) => {
 });
 router.post('/addUserActivity', async(req,res)=>{
     await activitydb.create(req.body);
-    activitydb.find().then((response)=>res.send(response)).catch((err)=>console.log('something went wronggg'));
+    activitydb.find().then((response)=>{
+      // while(!response.length <= 6) {
+      //   response.shift();
+      // }
+      res.send(response);
+    }).catch((err)=>console.log('something went wronggg'));
 })
-router.get('/getActivityDbData', async(req,res)=>{
+router.get('/getActivityDbData', (req,res)=>{
     activitydb.find().then((response)=>res.send(response)).catch((err)=>console.log('something went wrongg'));
 })
-router.get('/getMessages', (req,res)=>{
-    findConversation("tracker");
+router.post('/postMessages', async(req,res)=>{
+  const {username, status, time, channelInfo} = req.body;
+  const text = `${username} ${status} at ${time}`
+  for(let i=0;i<channelInfo.length;i++) {    
+    for(let key in channelInfo[i]) {
+      if(key == 'channelid') {
+        publishMessage(channelInfo[i][key] , text);
+      }
+    }
+  }
 })
-async function findConversation(name) {
+async function findConversation(id) {
     try {
       const result = await client.conversations.list({
-        token: "xoxb-90326783824-3669638917013-3YZ5A2SCkwo1tvcfrdu2v1sq"
+        token: process.env.SLACK_BOT_TOKEN,
+        
       });
       for (const channel of result.channels) {
-        if (channel.name === name) {
-          conversationId = channel.id;
-          console.log("Found conversation ID: " + conversationId);
-          console.log(channel);
-          break;
+        if (channel.id === id) {
+          return channel.name;
         }
       }
     }
     catch (error) {
       console.error(error);
     }
-    let conversationHistory;
-    let channelId = "C03GYEJ34P4";
-    
+  }
+  async function publishMessage(id, text) {
     try {
-      const result = await client.conversations.history({
-        channel: channelId
+      const result = await client.chat.postMessage({
+        token: process.env.SLACK_BOT_TOKEN,
+        channel: id,
+        text: text,
       });
-    
-      conversationHistory = result.messages;
-    
-      console.log(conversationHistory.length + " messages found in " + channelId);
-      console.log(result);
+      // console.log(result);
     }
     catch (error) {
       console.error(error);
     }
   }
+
+  router.post('/addchannel', async(req,res) => {
+      userchanneldb.findOne({channelid: req.body.channelId}, async(err,result)=>{
+        if(!result) {
+          const channelName = await findConversation(req.body.channelId);
+          const dataBody = {channelid: req.body.channelId, channelname: channelName}
+          if(channelName) {
+            await userchanneldb.create(dataBody);
+          }
+        }
+        userchanneldb.find().then((response)=>res.send(response)).catch((err)=>console.log('something went wronggg'));
+      });
+  })
+  router.get('/getchannelDbData', (req,res)=>{
+    userchanneldb.find().then((response)=>res.send(response)).catch((err)=>console.log('something went wrongg'));
+})
+router.post('/deletechannel', async(req,res) => {
+  await userchanneldb.findOneAndDelete({ _id: req.body.chid })
+  await userchanneldb.find().then((response)=>{res.send(response)}).catch((err)=>console.log('something went wrongg'));
+})
 
 router.get("/google", passport.authenticate("google", {scope: ["profile"]}));
 router.get("/google/callback", passport.authenticate("google", {
